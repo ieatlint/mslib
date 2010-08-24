@@ -280,10 +280,10 @@ int ms_decode_typeDetect( msData *ms ) {
 		if( bitStream == NULL )
 			break;
 	
-		if( !strncmp( bitStream, ABA_SS, 5 ) ) {
+		if( !strncmp( bitStream, ABA_SS, ABA_CHAR_LEN ) ) {
 			ms->dataType = ABA;
 			return 0;
-		} else if( !strncmp( bitStream, IATA_SS, 7 ) ) {
+		} else if( !strncmp( bitStream, IATA_SS, IATA_CHAR_LEN ) ) {
 			ms->dataType = IATA;
 			return 0;
 		}
@@ -301,7 +301,7 @@ int ms_decode_typeDetect( msData *ms ) {
 int ms_decode_bits( msData *ms ) {
 	char *bitStream;
 	char charStream[ MAX_IATA_LEN + 1 ], curChar;
-	char LRC[ 7 ] = { 0 };
+	char LRC[ IATA_CHAR_LEN ] = { 0 };
 	int bitStreamLen, i, x, len, validSwipe;
 	int maxLen, charLen, badChars;
 
@@ -313,10 +313,10 @@ int ms_decode_bits( msData *ms ) {
 
 	if( ms->dataType == ABA ) {
                 maxLen = MAX_ABA_LEN;
-                charLen = 5;
+                charLen = ABA_CHAR_LEN;
 	} else {
 		maxLen = MAX_IATA_LEN;
-                charLen = 7;
+                charLen = IATA_CHAR_LEN;
 	}
 
 	validSwipe = 0;
@@ -327,13 +327,14 @@ int ms_decode_bits( msData *ms ) {
 	
 	bitStreamLen = strlen( bitStream );
 
+	/* Traverse the bitstream to decode all the bits into a charstream */
 	curChar = '\0';
 	badChars = 0;
 	for( i = 0, len = 0; ( i + charLen ) < bitStreamLen && len < maxLen && curChar != '?'; i += charLen, len++ ) {
 		curChar = _ms_decode_bits_char( bitStream + i, LRC, ms->dataType );
 		charStream[ len ] = curChar;
 		if( curChar == BAD_CHAR )
-			badChars++;
+			badChars++; // count the bad chars
 	}
 	charStream[ len ] = '\0';
 
@@ -348,14 +349,16 @@ int ms_decode_bits( msData *ms ) {
 		return 1;
 	
 
+	/* Calculate the parity bit for the LRC */
 	LRC[ ( charLen - 1 ) ] = 1;
 	for( x = 0; x < ( charLen - 1 ); x++ ) {
-		LRC[ ( charLen - 1 ) ] += LRC[ x ];
+		if( LRC[ x ] == 1 )
+			LRC[ ( charLen - 1 ) ] = !LRC[ ( charLen - 1 ) ];
 		LRC[ x ] += 48;
 	}
-	LRC[ ( charLen - 1 ) ] %= 2;
 	LRC[ ( charLen - 1 ) ] += 48;
 	
+	/* Verify the LRC */
 	if( strncmp( LRC, bitStream + i, charLen ) ) {
 		fprintf( stderr, "ms_decode_bits(): Warning: LRC error decoding stream\n" );
 		validSwipe = 1;

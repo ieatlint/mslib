@@ -33,9 +33,11 @@ extern "C" {
 
 #define ABA_SS		"11010"
 #define MAX_ABA_LEN	41
+#define ABA_CHAR_LEN	5
 
 #define IATA_SS		"1010001"
 #define MAX_IATA_LEN	83 // some reports say max len is 79, but AAMVA says 82 ...
+#define IATA_CHAR_LEN	7
 
 /* This char will be put into the stream whenever the parity bit doesn't match.
  * The default char, | (PIPE), is chosen because it does not appear in either
