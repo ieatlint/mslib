@@ -29,13 +29,13 @@ extern "C" {
 #define PEAK_THRESHOLD	750
 #define PEAK_OFFSET	3
 
-#define MAX_BITSTREAM_LEN 600
+#define MAX_BITSTREAM_LEN 1024
 
 #define ABA_SS		"11010"
 #define MAX_ABA_LEN	41
 
 #define IATA_SS		"1010001"
-#define MAX_IATA_LEN	80
+#define MAX_IATA_LEN	83 // some reports say max len is 79, but AAMVA says 82 ...
 
 typedef enum {
 	UNSET = 0,
@@ -172,21 +172,8 @@ int ms_decode_typeDetect( msData *ms );
  * if the card format was not detected (de facto error) */
 int ms_decode_bits( msData *ms );
 
-/* This decodes the bits using ABA format.
- * Generally you should run ms_decode_bits() and not this.
- * Returns 1 on error and 0 on success.
- */
-int ms_decode_bits_aba( msData *ms );
-
 /* internal helper function, do not use */
-char _ms_decode_bits_aba_char( char *bitStream, char *LRC );
-
-/* This decodes the bits using IATA format.
- * It is currently a TBD function -- it will return 1 and print a message to
- * stderr.
- */
-int ms_decode_bits_iata( msData *ms );
-
+char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type );
 
 #ifdef __cplusplus /* If this is a C++ compiler, end C linkage */
 }

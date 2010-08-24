@@ -1,0 +1,4 @@
+2010-08-24 Jeffrey Malone <ieatlint@tehinterweb.com>
+	* Added support for IATA alpha-numeric encoding
+	* Merged ABA and IATA sub-functions into one unified function for
+	decoding

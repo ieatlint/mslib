@@ -1,7 +1,12 @@
 This is a library for reading magnetic stripes through PCM audio data.
 
-As of version 1.0, it only supports ABA encoding as found on track 2 of
-magnetic stripe cards.
+As of version 1.1, it supports both the numeric-only ABA encoding as found on
+track 2 of most magnetic stripe cards, and the alpha-numeric IATA encoding as
+found on track 1, occasionally track 3, and other magnetic stripes such as
+those found on airline boarding passes.
+
+Additionally, for non-standard coding schemes, the raw bitstream can be
+accessed to allow for the character decoding to occur elsewhere.
 
 Included in this package:
 mslib - The library

@@ -299,40 +299,49 @@ int ms_decode_typeDetect( msData *ms ) {
 
 
 int ms_decode_bits( msData *ms ) {
+	char *bitStream;
+	char charStream[ MAX_IATA_LEN + 1 ], curChar;
+	char LRC[ 7 ];
+	int bitStreamLen, i, x, len, validSwipe;
+	int maxLen, charLen;
 
-	if( !ms )
+	if( !ms || !ms->bitStream )
 		return -1;
 
 	if( ms_decode_typeDetect( ms ) )
 		return -1;
-	
-	if( ms->dataType == ABA )
-		return ms_decode_bits_aba( ms );
-	else if( ms->dataType == IATA )
-		return ms_decode_bits_iata( ms );
 
-	return ms->dataType;
-}
-
-int ms_decode_bits_aba( msData *ms ) {
-	char *bitStream;
-	char charStream[ MAX_ABA_LEN + 1 ], curChar;
-	char LRC[ 5 ] = { 0, 0, 1, 0, 1 };//inverse of start sentinel
-	int bitStreamLen, i, x, len, validSwipe;
-
-	if( !ms || !ms->bitStream )
-		return 1;
+	if( ms->dataType == ABA ) {
+		maxLen = MAX_ABA_LEN;
+		charLen = 5;
+		LRC[ 0 ] = 0;
+		LRC[ 1 ] = 0;
+		LRC[ 2 ] = 1;
+		LRC[ 3 ] = 0;
+		LRC[ 4 ] = 1;
+	} else {
+		maxLen = MAX_IATA_LEN;
+		charLen = 7;
+		LRC[ 0 ] = 0;
+		LRC[ 1 ] = 1;
+		LRC[ 2 ] = 0;
+		LRC[ 3 ] = 1;
+		LRC[ 4 ] = 1;
+		LRC[ 5 ] = 0;
+		LRC[ 6 ] = 1;
+	}
 
 	validSwipe = 0;
 
 	bitStream = strchr( ms->bitStream, '1' );
-	if( !bitStream )
+	if( bitStream == NULL )
 		return 1;
+	
 	bitStreamLen = strlen( bitStream );
 
 	curChar = '\0';
-	for( i = 0, len = 0; ( i + 10 ) < bitStreamLen && len < MAX_ABA_LEN && curChar != '?'; i += 5, len++ ) {
-		curChar = _ms_decode_bits_aba_char( bitStream + i, LRC );
+	for( i = 0, len = 0; ( i + charLen ) < bitStreamLen && len < maxLen && curChar != '?'; i += charLen, len++ ) {
+		curChar = _ms_decode_bits_char( bitStream + i, LRC, ms->dataType );
 		charStream[ len ] = curChar;
 	}
 	charStream[ len ] = '\0';
@@ -340,57 +349,63 @@ int ms_decode_bits_aba( msData *ms ) {
 	ms->charStream = g_strdup( charStream );
 	if( !ms->charStream )
 		return 1;
-
+	
 	for( x = 0, len = 0; charStream[ x ] != '\0'; x++ ) {
-		if( charStream[ x ] == '!' )
+		if( charStream[ x ] == '|' )
 			len++;
 	}
 	if( len ) {
-		fprintf( stderr, "ms_decode_bits_aba(): Warning: %d chars failed parity check\n", len );
+		fprintf( stderr, "ms_decode_bits(): Warning: %d chars failed parity check\n", len );
 		validSwipe = 1;
 	}
 
-
-	/* Verify the LRC */
-	for( x = 0; x < 4; x++ ) {
-		LRC[ 4 ] ^= LRC[ x ];
+	for( x = 0; x < ( charLen - 1 ); x++ ) {
+		LRC[ ( charLen - 1 ) ] ^= LRC[ x ];
 		LRC[ x ] += 48;
 	}
-	LRC[ 4 ] += 48;
-
-	if( strncmp( LRC, bitStream + i, 5 ) ) {
-		fprintf( stderr, "ms_decode_bits_aba(): Warning: LRC error decoding stream\n" );
+	LRC[ ( charLen - 1 ) ] += 48;
+	
+	if( strncmp( LRC, bitStream + i, charLen ) ) {
+		fprintf( stderr, "ms_decode_bits(): Warning: LRC error decoding stream\n" );
 		validSwipe = 1;
 	}
 
-	
 	return validSwipe;
 }
 
 /* This code is kinda messy :( */
-char _ms_decode_bits_aba_char( char *bitStream, char *LRC ) {
+char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	int parity = 0, i;
 	char out;
+	int len; // char length not including parity
+	int offset; // offset to make it ASCII
+	char ss; // start sentinel
 
-	for( i = 0, out = 0; i < 4; i++ ) {
-		out |= ( bitStream[ i ] - 48 ) << i;
-		parity += ( bitStream[ i ] - 48 );
+	if( type == ABA ) {
+		len = 4;
+		offset = 48;
+		ss = ';';
+	} else {
+		len = 6;
+		offset = 32;
+		ss = '%';
 	}
-	out += 48;
 
-	if( out != ';' && out != '?' ) {
-		for( i = 0; i < 4; i++ ) {
+	for( i = 0, out = 0; i < len; i++ ) {
+		out |= ( bitStream[ i ] - 48 ) << i;
+		parity += bitStream[ i ] == '1';
+	}
+	out += offset;
+
+	if( out != ss && out != '?' ) {
+		for( i = 0; i < len; i++ ) {
 			LRC[ i ] ^= !( bitStream[ i ] - 48 ) == 0;
 		}
 	}
 
-	if( ( parity & 1 ) == ( bitStream[ 4 ] - 48 ) )
-		out = '!';
+	if( ( parity & 1 ) == ( bitStream[ len ] - 48 ) )
+		out = '|';
 	
 	return out;
 }
 
-int ms_decode_bits_iata( msData *ms ) {
-	fprintf( stderr, "IATA support is TBD\n" );
-	return 1;
-}
