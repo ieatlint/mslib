@@ -303,7 +303,7 @@ int ms_decode_bits( msData *ms ) {
 	char charStream[ MAX_IATA_LEN + 1 ], curChar;
 	char LRC[ 7 ] = { 0 };
 	int bitStreamLen, i, x, len, validSwipe;
-	int maxLen, charLen;
+	int maxLen, charLen, badChars;
 
 	if( !ms || !ms->bitStream )
 		return -1;
@@ -322,30 +322,31 @@ int ms_decode_bits( msData *ms ) {
 	validSwipe = 0;
 
 	bitStream = strchr( ms->bitStream, '1' );
-	if( bitStream == NULL )
+	if( bitStream == NULL ) // if stream contains no 1s, it's bad, just quit
 		return 1;
 	
 	bitStreamLen = strlen( bitStream );
 
 	curChar = '\0';
+	badChars = 0;
 	for( i = 0, len = 0; ( i + charLen ) < bitStreamLen && len < maxLen && curChar != '?'; i += charLen, len++ ) {
 		curChar = _ms_decode_bits_char( bitStream + i, LRC, ms->dataType );
 		charStream[ len ] = curChar;
+		if( curChar == BAD_CHAR )
+			badChars++;
 	}
 	charStream[ len ] = '\0';
+
+	/* Print warning about any detected bad characters */
+	if( badChars ) {
+		fprintf( stderr, "ms_decode_bits(): Warning: %d chars failed parity check\n", badChars );
+		validSwipe = 1;
+	}
 
 	ms->charStream = g_strdup( charStream );
 	if( !ms->charStream )
 		return 1;
 	
-	for( x = 0, len = 0; charStream[ x ] != '\0'; x++ ) {
-		if( charStream[ x ] == '|' )
-			len++;
-	}
-	if( len ) {
-		fprintf( stderr, "ms_decode_bits(): Warning: %d chars failed parity check\n", len );
-		validSwipe = 1;
-	}
 
 	LRC[ ( charLen - 1 ) ] = 1;
 	for( x = 0; x < ( charLen - 1 ); x++ ) {
@@ -359,12 +360,10 @@ int ms_decode_bits( msData *ms ) {
 		fprintf( stderr, "ms_decode_bits(): Warning: LRC error decoding stream\n" );
 		validSwipe = 1;
 	}
-	fprintf( stderr, "LRC was expected to be %.5s, but was %.5s\n", LRC, bitStream + i );
 
 	return validSwipe;
 }
 
-/* This code is kinda messy :( */
 char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	int parity = 0, i;
 	char out;
@@ -380,18 +379,16 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	}
 
 	for( i = 0, out = 0; i < len; i++ ) {
-		out |= ( bitStream[ i ] - 48 ) << i;
-		parity += bitStream[ i ] == '1';
+		out |= ( bitStream[ i ] - 48 ) << i; // using OR to assign the bits into the char
+		if( bitStream[ i ] == '1' ) {
+			LRC[ i ] = !LRC[ i ]; // flip the bit in the LRC for all 1 bits in the char
+			parity++; // count the number of 1 bits for the parity bit
+		}
 	}
 	out += offset;
 
-	for( i = 0; i < len; i++ ) {
-		if( bitStream[ i ] == '1' )
-			LRC[ i ] = !LRC[ i ];
-	}
-
 	if( ( parity & 1 ) == ( bitStream[ len ] - 48 ) )
-		out = '|';
+		out = BAD_CHAR; // return the error char if the calculated parity bit doesn't match the recorded one
 	
 	return out;
 }

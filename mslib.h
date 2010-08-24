@@ -37,6 +37,11 @@ extern "C" {
 #define IATA_SS		"1010001"
 #define MAX_IATA_LEN	83 // some reports say max len is 79, but AAMVA says 82 ...
 
+/* This char will be put into the stream whenever the parity bit doesn't match.
+ * The default char, | (PIPE), is chosen because it does not appear in either
+ * of the two encoding schemes. */
+#define BAD_CHAR	'|'
+
 typedef enum {
 	UNSET = 0,
 	IATA,
