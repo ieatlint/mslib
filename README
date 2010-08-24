@@ -1,0 +1,23 @@
+This is a library for reading magnetic stripes through PCM audio data.
+
+As of version 1.0, it only supports ABA encoding as found on track 2 of
+magnetic stripe cards.
+
+Included in this package:
+mslib - The library
+mstest - a C program to test the library with PCM audio files
+
+mslib and mstest are tersely documented.  The latter should provide a basic
+usage example.  Refer to mslib.h for additional documentation.
+
+Requirements:
+glib-2.0
+
+
+To compile mslib and mstest, run "make".
+
+For more information on how this library works, see my blog at:
+http://blog.tehinterweb.com/
+
+Jeffrey Malone
+ieatlint@tehinterweb.com
