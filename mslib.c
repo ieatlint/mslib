@@ -301,7 +301,7 @@ int ms_decode_typeDetect( msData *ms ) {
 int ms_decode_bits( msData *ms ) {
 	char *bitStream;
 	char charStream[ MAX_IATA_LEN + 1 ], curChar;
-	char LRC[ 7 ];
+	char LRC[ 7 ] = { 0 };
 	int bitStreamLen, i, x, len, validSwipe;
 	int maxLen, charLen;
 
@@ -312,23 +312,11 @@ int ms_decode_bits( msData *ms ) {
 		return -1;
 
 	if( ms->dataType == ABA ) {
-		maxLen = MAX_ABA_LEN;
-		charLen = 5;
-		LRC[ 0 ] = 0;
-		LRC[ 1 ] = 0;
-		LRC[ 2 ] = 1;
-		LRC[ 3 ] = 0;
-		LRC[ 4 ] = 1;
+                maxLen = MAX_ABA_LEN;
+                charLen = 5;
 	} else {
 		maxLen = MAX_IATA_LEN;
-		charLen = 7;
-		LRC[ 0 ] = 0;
-		LRC[ 1 ] = 1;
-		LRC[ 2 ] = 0;
-		LRC[ 3 ] = 1;
-		LRC[ 4 ] = 1;
-		LRC[ 5 ] = 0;
-		LRC[ 6 ] = 1;
+                charLen = 7;
 	}
 
 	validSwipe = 0;
@@ -359,16 +347,19 @@ int ms_decode_bits( msData *ms ) {
 		validSwipe = 1;
 	}
 
+	LRC[ ( charLen - 1 ) ] = 1;
 	for( x = 0; x < ( charLen - 1 ); x++ ) {
-		LRC[ ( charLen - 1 ) ] ^= LRC[ x ];
+		LRC[ ( charLen - 1 ) ] += LRC[ x ];
 		LRC[ x ] += 48;
 	}
+	LRC[ ( charLen - 1 ) ] %= 2;
 	LRC[ ( charLen - 1 ) ] += 48;
 	
 	if( strncmp( LRC, bitStream + i, charLen ) ) {
 		fprintf( stderr, "ms_decode_bits(): Warning: LRC error decoding stream\n" );
 		validSwipe = 1;
 	}
+	fprintf( stderr, "LRC was expected to be %.5s, but was %.5s\n", LRC, bitStream + i );
 
 	return validSwipe;
 }
@@ -379,16 +370,13 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	char out;
 	int len; // char length not including parity
 	int offset; // offset to make it ASCII
-	char ss; // start sentinel
 
 	if( type == ABA ) {
 		len = 4;
 		offset = 48;
-		ss = ';';
 	} else {
 		len = 6;
 		offset = 32;
-		ss = '%';
 	}
 
 	for( i = 0, out = 0; i < len; i++ ) {
@@ -397,10 +385,9 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	}
 	out += offset;
 
-	if( out != ss && out != '?' ) {
-		for( i = 0; i < len; i++ ) {
-			LRC[ i ] ^= !( bitStream[ i ] - 48 ) == 0;
-		}
+	for( i = 0; i < len; i++ ) {
+		if( bitStream[ i ] == '1' )
+			LRC[ i ] = !LRC[ i ];
 	}
 
 	if( ( parity & 1 ) == ( bitStream[ len ] - 48 ) )
