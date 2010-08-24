@@ -354,9 +354,9 @@ int ms_decode_bits( msData *ms ) {
 	for( x = 0; x < ( charLen - 1 ); x++ ) {
 		if( LRC[ x ] == 1 )
 			LRC[ ( charLen - 1 ) ] = !LRC[ ( charLen - 1 ) ];
-		LRC[ x ] += 48;
+		LRC[ x ] += NUM_ASCII_OFFSET;
 	}
-	LRC[ ( charLen - 1 ) ] += 48;
+	LRC[ ( charLen - 1 ) ] += NUM_ASCII_OFFSET;
 	
 	/* Verify the LRC */
 	if( strncmp( LRC, bitStream + i, charLen ) ) {
@@ -374,15 +374,15 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	int offset; // offset to make it ASCII
 
 	if( type == ABA ) {
-		len = 4;
-		offset = 48;
+		len = ABA_CHAR_LEN - 1;
+		offset = ABA_ASCII_OFFSET;
 	} else {
-		len = 6;
-		offset = 32;
+		len = IATA_CHAR_LEN - 1;
+		offset = IATA_ASCII_OFFSET;
 	}
 
 	for( i = 0, out = 0; i < len; i++ ) {
-		out |= ( bitStream[ i ] - 48 ) << i; // using OR to assign the bits into the char
+		out |= ( bitStream[ i ] - NUM_ASCII_OFFSET ) << i; // using OR to assign the bits into the char
 		if( bitStream[ i ] == '1' ) {
 			LRC[ i ] = !LRC[ i ]; // flip the bit in the LRC for all 1 bits in the char
 			parity++; // count the number of 1 bits for the parity bit
@@ -390,7 +390,7 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 	}
 	out += offset;
 
-	if( ( parity & 1 ) == ( bitStream[ len ] - 48 ) )
+	if( ( parity & 1 ) == ( bitStream[ len ] - NUM_ASCII_OFFSET ) )
 		out = BAD_CHAR; // return the error char if the calculated parity bit doesn't match the recorded one
 	
 	return out;
