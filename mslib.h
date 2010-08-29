@@ -26,6 +26,8 @@ extern "C" {
 #include <glib.h>
 #include <string.h>
 
+#include "llist.h"
+
 #define PEAK_THRESHOLD	750
 #define PEAK_OFFSET	3
 
@@ -68,7 +70,7 @@ typedef struct {
 	int pcmDataFree; // if ms_create_list used, this will be 1
 	
 	/* Peaks */
-	GList *peakList;
+	LListH *peakList;
 	int peakThreshold;
 	int peakOffset;
 
@@ -89,12 +91,6 @@ msData *_ms_create();
  * pcmDataLen - the number of elements in pcmData
  * Returns an msData object on success and NULL on failure */
 msData *ms_create( const int16_t *pcmData, int pcmDataLen );
-
-/* Create an msData object using a GList of 16bit arrays (Convenience function)
- * pcmDataList - a GList of 16bit arrays
- * blockSize - the size of each array in the list
- * Returns an msData object on success and NULL on failure */
-msData *ms_create_list( GList *pcmDataList, int blockSize );
 
 /* Garbage Collection */
 
@@ -153,7 +149,7 @@ void ms_peaks_find( msData *ms );
 void ms_peaks_filter_group( msData *ms );
 
 /* internal helper function, do not use */
-GList *_ms_peaks_filter_groupFind( msData *ms, GList *groupList );
+LListH *_ms_peaks_filter_groupFind( msData *ms, LListH *groupList );
 
 
 /* Peak Decoding Functions */

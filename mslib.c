@@ -42,30 +42,6 @@ msData *ms_create( const int16_t *pcmData, int pcmDataLen ) {
 	return ms;
 }
 
-msData *ms_create_list( GList *pcmDataList, int blockSize ) {
-	int16_t *pcmData;
-	int pcmDataLen;
-	GList *trav;
-	msData *ms;
-
-	pcmData = g_new( int16_t, g_list_length( pcmDataList ) * blockSize );
-	if( !pcmData )
-		return NULL;
-
-	pcmDataLen = 0;
-	for( trav = pcmDataList; trav != NULL; trav = trav->next, pcmDataLen += blockSize ) {
-		memcpy( pcmData + pcmDataLen, trav->data, sizeof( int16_t ) * blockSize );
-	}
-
-	ms = ms_create( pcmData, pcmDataLen );
-	if( !ms )
-		g_free( pcmData );
-	else
-		ms->pcmDataFree = 1;
-	
-	return ms;
-}
-
 msData *ms_free( msData *ms ) {
 	if( !ms )
 		return NULL;
@@ -86,21 +62,6 @@ msData *ms_free( msData *ms ) {
 
 	return NULL;
 }
-
-void ms_free_peakList( msData *ms ) {
-	GList *trav;
-
-	if( !ms )
-		return;
-	
-	for( trav = ms->peakList; trav != NULL; trav = trav->next ) {
-		g_free( trav->data );
-	}
-
-	g_list_free( ms->peakList );
-	ms->peakList = NULL;
-}
-
 
 /* Misc User Functions */
 void ms_set_peakThreshold( msData *ms, int peakThreshold ) {
@@ -138,7 +99,6 @@ gboolean ms_range( int a, int b1, int b2 ) {
 }
 
 void ms_peaks_find( msData *ms ) {
-	peakData *curPeak;
 	int i;
 	
 	if( ms == NULL || ( ms->pcmData == NULL ) )
@@ -148,37 +108,31 @@ void ms_peaks_find( msData *ms ) {
 
 	for( i = 0; ( i + ms->peakOffset + 2 ) < ms->pcmDataLen; i++ ) {
 		if( abs( ms->pcmData[ i ] ) > ms->peakThreshold && ms_range( ms->pcmData[ i ], ms->pcmData[ ( i + ms->peakOffset ) - 2 ], ms->pcmData[ ( i + ms->peakOffset ) + 2 ] ) ) {
-			curPeak = g_new( peakData, 1 );
-			if( !curPeak )
-				break;
-			curPeak->idx = i;
-			curPeak->amp = ms->pcmData[ i ];
-			ms->peakList = g_list_append( ms->peakList, curPeak );
+			ms->peakList = llist_append( ms->peakList, i, ms->pcmData[ i ] );
 		}
 	}
 }
 
 void ms_peaks_filter_group( msData *ms ) {
-	GList *trav, *groupList;
-	peakData *curPeak;
-	int pos;
+	LList *trav;
+	LListH *groupList;
+	
+	int pos;//indicates pos/neg (not position)
 
-	if( !ms || g_list_length( ms->peakList ) < 2 )
+	if( !ms || ms->peakList->len < 2 )
 		return;
 	
-	curPeak = ms->peakList->data;
-	pos = ( curPeak->amp > 0 );
+	pos = ( ms->peakList->first->amp > 0 );
 
 	groupList = NULL;
-	for( trav = ms->peakList; trav != NULL; trav = trav->next ) {
-		curPeak = trav->data;
+	for( trav = ms->peakList->first; trav != NULL; trav = trav->next ) {
 
-		if( ( curPeak->amp > 0 ) != pos ) {
+		if( ( trav->amp > 0 ) != pos ) {
 			pos = !pos;
 			groupList = _ms_peaks_filter_groupFind( ms, groupList );
 		}
 		
-		groupList = g_list_append( groupList, curPeak );
+		groupList = llist_append( groupList, trav->idx, trav->amp );
 	}
 
 	if( groupList )
@@ -187,28 +141,30 @@ void ms_peaks_filter_group( msData *ms ) {
 
 
 
-GList *_ms_peaks_filter_groupFind( msData *ms, GList *groupList ) {
-	GList *trav;
-	peakData *curPeak, *bigPeak;
+LListH *_ms_peaks_filter_groupFind( msData *ms, LListH *groupList ) {
+	LList *trav;
+	struct {
+		int idx;
+		short amp;
+	} bigPeak;
 
-	if( !ms || groupList == NULL )
+	if( !ms || groupList == NULL || groupList->len < 2 )
 		return NULL;
 	
-	bigPeak = groupList->data;
-	for( trav = groupList->next; trav != NULL; trav = trav->next ) {
-		curPeak = trav->data;
+	bigPeak.idx = groupList->first->idx;
+	bigPeak.amp = abs( groupList->first->amp );
 
-		if( abs( curPeak->amp ) > abs( bigPeak->amp ) ) {
-			ms->peakList = g_list_remove( ms->peakList, bigPeak );
-			g_free( bigPeak );
-			bigPeak = curPeak;
+	for( trav = groupList->first->next; trav != NULL; trav = trav->next ) {
+		if( abs( trav->amp ) > bigPeak.amp ) {
+			llist_remove_idx( ms->peakList, bigPeak.idx );
+			bigPeak.idx = trav->idx;
+			bigPeak.amp = abs( trav->amp );
 		} else {
-			ms->peakList = g_list_remove( ms->peakList, curPeak );
-			g_free( curPeak );
+			llist_remove_idx( ms->peakList, trav->idx );
 		}
 	}
 
-	g_list_free( groupList );
+	llist_free( groupList );
 	return NULL;
 }
 
@@ -231,23 +187,21 @@ char _ms_closer( int *oneClock, int dif ) {
 }
 
 void ms_decode_peaks( msData *ms ) {
-	GList *trav;
+	LList *trav;
 	int clock, len;
-	peakData *lastPeak, *curPeak;
+	int lastPeakidx;
 	char lastBit, curBit, bitStream[ MAX_BITSTREAM_LEN + 1 ];
 
-	if( !ms || ms->peakList == NULL || g_list_length( ms->peakList ) < 3 )
+	if( !ms || ms->peakList == NULL || ms->peakList->len < 3 )
 		return;
 	
-	lastPeak = ms->peakList->next->data;
-	curPeak = ms->peakList->next->next->data;
-	clock = ( curPeak->idx - lastPeak->idx ) / 2;
+	lastPeakidx = ms->peakList->first->next->idx;
+	clock = ( ms->peakList->first->next->next->idx - lastPeakidx ) / 2;
 
 	len = 0;
 	lastBit = '\0';
-	for( trav = ms->peakList->next; trav != NULL && len < MAX_BITSTREAM_LEN; trav = trav->next ) {
-		curPeak = trav->data;
-		curBit = _ms_closer( &clock, ( curPeak->idx - lastPeak->idx ) );
+	for( trav = ms->peakList->first->next; trav != NULL && len < MAX_BITSTREAM_LEN; trav = trav->next ) {
+		curBit = _ms_closer( &clock, ( trav->idx - lastPeakidx ) );
 		if( curBit == '0' ) {
 			bitStream[ len++ ] = curBit;
 		} else if( curBit == lastBit ) {
@@ -256,7 +210,7 @@ void ms_decode_peaks( msData *ms ) {
 		}
 		
 		lastBit = curBit;
-		lastPeak = curPeak;
+		lastPeakidx = trav->idx;
 	}
 
 	bitStream[ len ] = '\0';
