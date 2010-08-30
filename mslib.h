@@ -67,7 +67,6 @@ typedef struct {
 	/* PCM Data */
 	int16_t *pcmData;
 	int pcmDataLen;
-	int pcmDataFree; // if ms_create_list used, this will be 1
 	
 	/* Peaks */
 	LListH *peakList;

@@ -14,8 +14,12 @@
  * along with nosebus.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
-#include <glib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <glib.h>
 
 #include "mslib.h"
 
@@ -24,25 +28,23 @@
 
 /* This function is used to save the peaks detected for debug purposes */
 void peak_save( msData *ms ) {
-	GList *trav;
+	LList *trav;
 	FILE *peaks;
-	peakData *curPeak;
 
 	peaks = fopen( "ms.peaks", "w" );
 
-	for( trav = ms->peakList; trav != NULL; trav = trav->next ) {
-		curPeak = trav->data;
-		fprintf( peaks, "%d %d\n", curPeak->idx, curPeak->amp );
+	for( trav = ms->peakList->first; trav != NULL; trav = trav->next ) {
+		fprintf( peaks, "%d %d\n", trav->idx, trav->amp );
 	}
 
 	fclose( peaks );
 }
 
-void audio_process( GList *blockList ) {
+void audio_process( short *blocks, int len ) {
 	msData *ms;
 	const char *tmpStr;
 
-	ms = ms_create_list( blockList, BUF_SIZE );
+	ms = ms_create( blocks, len );
 
 	ms_peaks_find( ms );
 	ms_peaks_filter_group( ms );
@@ -63,36 +65,45 @@ void audio_process( GList *blockList ) {
 }
 
 int main( int argc, char **argv ) {
-	GList *blocks = NULL;
-	int16_t *block;
-	FILE *input;
+	short *blocks;
+	int fd;
+	struct stat fdStat;
+	int offset = 0;
 
 	if( argc == 1 ) {
 		printf( "%s <audio file>\n", argv[0] );
 		return 1;
 	}
 
-
-	input = fopen( argv[1], "r" );
-
-	if( g_str_has_suffix( argv[1], "wav" ) ) {
-		/* WAV file input, skip the 44 byte WAV header */
-		fseek( input, 44, 0 );
+	fd = open( argv[1], O_RDONLY );
+	if( fd == -1 ) {
+		perror( "Failed to open audio file" );
+		return -1;
 	}
 
-	/* load the data into a list
-	 * Note that normally an mmap would be more effective, but this method
-	 * was used to debug the ms_create_list() function. */
-	while( !feof( input ) ) {
-		block = g_new0( int16_t, BUF_SIZE );
-		fread( block, sizeof( int16_t ), BUF_SIZE, input );
-		blocks = g_list_append( blocks, block );
+	if( fstat( fd, &fdStat ) ) {
+		perror( "Failed to stat file" );
+		return -1;
 	}
 
-	/* process the audio */
-	audio_process( blocks );
+	if( !strncmp( ( argv[1] + strlen( argv[1] - 4 ) ), ".wav", 4 ) ) {
+		// use a 44byte offset for .wav files to bypass header
+		offset = 44;
+	}
+	blocks = mmap( 0, fdStat.st_size, PROT_READ, MAP_SHARED, fd, offset );
 
-	fclose( input );
+	if( blocks == MAP_FAILED ) {
+		close( fd );
+		perror( "Failed to map file" );
+		return -1;
+	}
+
+	audio_process( blocks, ( fdStat.st_size - offset ) / sizeof( short ) );
+
+	if( munmap( blocks, fdStat.st_size ) == -1 ) {
+		perror( "Failed to unmap file" );
+	}
+	close( fd );
 
 	return 0;
 }

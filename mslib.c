@@ -24,7 +24,6 @@ msData *_ms_create() {
 		return NULL;
 	ms->peakThreshold = PEAK_THRESHOLD;
 	ms->peakOffset = PEAK_OFFSET;
-	ms->pcmDataFree = 0;
 
 	return ms;
 }
@@ -46,11 +45,8 @@ msData *ms_free( msData *ms ) {
 	if( !ms )
 		return NULL;
 	
-	if( ms->pcmDataFree && ms->pcmData )
-		g_free( ms->pcmData );
-	
 	if( ms->peakList )
-		ms_free_peakList( ms );
+		llist_free( ms->peakList );
 	
 	if( ms->bitStream )
 		g_free( ms->bitStream );
