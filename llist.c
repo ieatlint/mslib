@@ -16,15 +16,12 @@ LListH *llist_init() {
 }
 
 
-LListH *llist_append( LListH *list, int idx, short amp ) {
+void llist_append( LListH *list, int idx, short amp ) {
 	LList *node;
-
-	if( list == NULL )
-		list = llist_init();
 
 	node = ( LList * ) malloc( sizeof( LList ) );
 	if( node == NULL )
-		return NULL;
+		return;
 	
 	node->idx = idx;
 	node->amp = amp;
@@ -38,8 +35,6 @@ LListH *llist_append( LListH *list, int idx, short amp ) {
 	list->last = node;
 
 	list->len++;
-
-	return list;
 }
 
 void llist_remove_idx( LListH *list, int idx ) {
@@ -66,10 +61,18 @@ void llist_remove_idx( LListH *list, int idx ) {
 }
 
 LListH *llist_free( LListH *list ) {
-	LList *trav,*prev;
-
 	if( list == NULL )
 		return NULL;
+
+	llist_reinit( list );
+
+	free( list );
+
+	return NULL;
+}
+
+void llist_reinit( LListH *list ) {
+	LList *trav,*prev;
 
 	for( trav = list->first, prev = NULL; trav != NULL; ) {
 		prev = trav;
@@ -83,11 +86,7 @@ LListH *llist_free( LListH *list ) {
 	if( prev )
 		free( prev );
 	
-	free( list );
-
-	return NULL;
-}
-
-int llist_length( LListH *list ) {
-	return list->len;
+	list->first = NULL;
+	list->last = NULL;
+	list->len = 0;
 }

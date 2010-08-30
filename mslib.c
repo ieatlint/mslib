@@ -100,11 +100,11 @@ void ms_peaks_find( msData *ms ) {
 	if( ms == NULL || ( ms->pcmData == NULL ) )
 		return;
 	
-	ms->peakList = NULL;
+	ms->peakList = llist_init();
 
 	for( i = 0; ( i + ms->peakOffset + 2 ) < ms->pcmDataLen; i++ ) {
 		if( abs( ms->pcmData[ i ] ) > ms->peakThreshold && ms_range( ms->pcmData[ i ], ms->pcmData[ ( i + ms->peakOffset ) - 2 ], ms->pcmData[ ( i + ms->peakOffset ) + 2 ] ) ) {
-			ms->peakList = llist_append( ms->peakList, i, ms->pcmData[ i ] );
+			llist_append( ms->peakList, i, ms->pcmData[ i ] );
 		}
 	}
 }
@@ -120,19 +120,21 @@ void ms_peaks_filter_group( msData *ms ) {
 	
 	pos = ( ms->peakList->first->amp > 0 );
 
-	groupList = NULL;
+	groupList = llist_init();
 	for( trav = ms->peakList->first; trav != NULL; trav = trav->next ) {
 
 		if( ( trav->amp > 0 ) != pos ) {
 			pos = !pos;
-			groupList = _ms_peaks_filter_groupFind( ms, groupList );
+			_ms_peaks_filter_groupFind( ms, groupList );
 		}
 		
-		groupList = llist_append( groupList, trav->idx, trav->amp );
+		llist_append( groupList, trav->idx, trav->amp );
 	}
 
-	if( groupList )
-		groupList = _ms_peaks_filter_groupFind( ms, groupList );
+	if( groupList->len )
+		_ms_peaks_filter_groupFind( ms, groupList );
+	
+	groupList = llist_free( groupList );
 }
 
 
@@ -160,8 +162,8 @@ LListH *_ms_peaks_filter_groupFind( msData *ms, LListH *groupList ) {
 		}
 	}
 
-	llist_free( groupList );
-	return NULL;
+	llist_reinit( groupList );
+	return groupList;
 }
 
 

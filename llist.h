@@ -16,12 +16,12 @@ typedef struct llist_h {
 
 LListH *llist_init();
 
-LListH *llist_append( LListH *list, int idx, short amp );
+void llist_append( LListH *list, int idx, short amp );
 
 void llist_remove_idx( LListH *list, int idx );
 
 LListH *llist_free( LListH *list );
 
-int llist_length( LListH *list );
+void llist_reinit( LListH *list );
 
 #endif
