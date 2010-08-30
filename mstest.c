@@ -14,12 +14,10 @@
  * along with nosebus.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <glib.h>
 
 #include "mslib.h"
 

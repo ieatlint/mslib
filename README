@@ -16,8 +16,8 @@ mslib and mstest are tersely documented.  The latter should provide a basic
 usage example.  Refer to mslib.h for additional documentation.
 
 Requirements:
-glib-2.0
-
+mslib should be compatible with any C99 implementation.
+mstest should be compatible with any C99 POSIX implementation (for mmap)
 
 To compile mslib and mstest, run "make".
 

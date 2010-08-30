@@ -28,14 +28,14 @@ msData *_ms_create() {
 	return ms;
 }
 
-msData *ms_create( const int16_t *pcmData, int pcmDataLen ) {
+msData *ms_create( const short *pcmData, int pcmDataLen ) {
 	msData *ms;
 
 	ms = _ms_create();
 	if( !ms )
 		return NULL;
 	
-	ms->pcmData = ( int16_t * )pcmData;
+	ms->pcmData = ( short * )pcmData;
 	ms->pcmDataLen = pcmDataLen;
 
 	return ms;
@@ -86,12 +86,12 @@ const char *ms_get_charStream( msData *ms ) {
 
 
 /* Finding Peaks */
-gboolean ms_range( int a, int b1, int b2 ) {
+int ms_range( int a, int b1, int b2 ) {
 	if( a > b1 && a < b2 )
-		return TRUE;
+		return 1;
 	if( a > b2 && a < b1 )
-		return TRUE;
-	return FALSE;
+		return 1;
+	return 0;
 }
 
 void ms_peaks_find( msData *ms ) {
@@ -211,10 +211,21 @@ void ms_decode_peaks( msData *ms ) {
 
 	bitStream[ len ] = '\0';
 
-	ms->bitStream = g_strdup( bitStream );
+	ms->bitStream = ( char * ) malloc( sizeof( char ) * strlen( bitStream ) + 1 );
+	strcpy( ms->bitStream, bitStream );
 }
 
+/* String Reverse Function */
+void strrev( char *str ) {
+	int f, l;
+	char tmp;
 
+	for( f = 0, l = strlen( str ) - 1; l > f; f++, l-- ) {
+		tmp = str[ f ];
+		str[ f ] = str[ l ];
+		str[ l ] = tmp;
+	}
+}
 
 /* Bit Decode functions */
 int ms_decode_typeDetect( msData *ms ) {
@@ -238,7 +249,7 @@ int ms_decode_typeDetect( msData *ms ) {
 			return 0;
 		}
 
-		g_strreverse( ms->bitStream );
+		strrev( ms->bitStream );
 		loop--;
 	} while( loop );
 
@@ -294,7 +305,8 @@ int ms_decode_bits( msData *ms ) {
 		validSwipe = 1;
 	}
 
-	ms->charStream = g_strdup( charStream );
+	ms->charStream = ( char * ) malloc( sizeof( char ) * strlen( charStream ) + 1 );
+	strcpy( ms->charStream, charStream );
 	if( !ms->charStream )
 		return 1;
 	

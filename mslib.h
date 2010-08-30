@@ -23,7 +23,6 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <glib.h>
 #include <string.h>
 
 #include "llist.h"
@@ -65,7 +64,7 @@ typedef struct {
 
 typedef struct {
 	/* PCM Data */
-	int16_t *pcmData;
+	short *pcmData;
 	int pcmDataLen;
 	
 	/* Peaks */
@@ -89,7 +88,7 @@ msData *_ms_create();
  * pcmData - A 16bit signed array of PCM data.
  * pcmDataLen - the number of elements in pcmData
  * Returns an msData object on success and NULL on failure */
-msData *ms_create( const int16_t *pcmData, int pcmDataLen );
+msData *ms_create( const short *pcmData, int pcmDataLen );
 
 /* Garbage Collection */
 
@@ -128,13 +127,15 @@ const char *ms_get_bitStream( msData *ms );
  * Returns NULL on error (such as if ms_decode_bits() has not been run) */
 const char *ms_get_charStream( msData *ms );
 
+/* Reverses a string in place */
+void strrev( char *str );
 
 
 
 /* Find Peaks Functions */
 
 /* internal helper function, do not use */
-gboolean ms_range( int a, int b1, int b2 );
+int ms_range( int a, int b1, int b2 );
 
 /* Finds the peaks in the stream.
  * This should be run immediately after ms_create().
