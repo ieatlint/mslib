@@ -4,7 +4,7 @@
 LListH *llist_init() {
 	LListH *list;
 
-	list = ( LListH * ) malloc( ( sizeof( LListH ) * 1 ) );
+	list = ( LListH * ) malloc( sizeof( LListH ) );
 	if( list == NULL )
 		return NULL;
 	
@@ -22,7 +22,7 @@ LListH *llist_append( LListH *list, int idx, short amp ) {
 	if( list == NULL )
 		list = llist_init();
 
-	node = ( LList * ) malloc( ( sizeof( LList ) * 1 ) );
+	node = ( LList * ) malloc( sizeof( LList ) );
 	if( node == NULL )
 		return NULL;
 	
