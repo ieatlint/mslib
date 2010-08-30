@@ -1,3 +1,8 @@
+2010-08-29 Jeffrey Malone <iealtint@tehintereb.com>
+	* Removed glib as a dependency
+	* Fixed a couple memory leaks by removing glib
+	* Created a new memory leak :)
+	* Switched to my own linked list implementation (replacing GList)
 2010-08-24 Jeffrey Malone <ieatlint@tehinterweb.com>
 	* Added support for IATA alpha-numeric encoding
 	* Merged ABA and IATA sub-functions into one unified function for
