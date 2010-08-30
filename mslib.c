@@ -19,7 +19,7 @@
 msData *_ms_create() {
 	msData *ms;
 
-	ms = g_new0( msData, 1 );
+	ms = ( msData * ) calloc( sizeof( msData ), 1 );
 	if ( !ms )
 		return NULL;
 	ms->peakThreshold = PEAK_THRESHOLD;
@@ -49,12 +49,12 @@ msData *ms_free( msData *ms ) {
 		llist_free( ms->peakList );
 	
 	if( ms->bitStream )
-		g_free( ms->bitStream );
+		free( ms->bitStream );
 	
 	if( ms->charStream )
-		g_free( ms->charStream );
+		free( ms->charStream );
 
-	g_free( ms );
+	free( ms );
 
 	return NULL;
 }
