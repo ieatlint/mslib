@@ -27,7 +27,7 @@ extern "C" {
 
 #include "llist.h"
 
-#define PEAK_THRESHOLD	750
+#define PEAK_THRESHOLD	500
 #define PEAK_OFFSET	3
 
 #define MAX_BITSTREAM_LEN 1024
@@ -97,6 +97,8 @@ msData *ms_create( const short *pcmData, int pcmDataLen );
  * This function will not free any data that mslib did not allocate itself */
 msData *ms_free( msData *ms );
 
+void ms_reinit( msData *ms );
+
 /* internal helper function, do not use */
 void ms_free_peakList( msData *ms );
 
@@ -139,8 +141,15 @@ int ms_range( int a, int b1, int b2 );
 
 /* Finds the peaks in the stream.
  * This should be run immediately after ms_create().
+ * Compares the stream against an offset of itself and searches for intersects.
+ * Intersections are marked as peaks.
  */
 void ms_peaks_find( msData *ms );
+
+/* Finds the peaks in the stream.
+ * Marks the apex of any amplitude apex as a peak.
+ */
+void ms_peaks_find_walk( msData *ms );
 
 /* Filters the list of peaks found using a grouping method based on signedness
  * of the amplitude.
@@ -181,6 +190,16 @@ int ms_decode_bits( msData *ms );
 
 /* internal helper function, do not use */
 char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type );
+
+/* Debug function.
+ * This saves the stream to the given filename with ".pcm" appended.
+ * It also saves the contents of the peakList to the filename with a ".peaks"
+ * extension.
+ *
+ * gnuplot is ideal for viewing the contents:
+ * plot "x.pcm" binary format="%int16" using l 1 w l, "x.peaks"
+ */
+void ms_save( msData *ms, const char *filename );
 
 #ifdef __cplusplus /* If this is a C++ compiler, end C linkage */
 }

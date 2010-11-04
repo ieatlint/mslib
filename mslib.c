@@ -59,6 +59,26 @@ msData *ms_free( msData *ms ) {
 	return NULL;
 }
 
+void ms_reinit( msData *ms ) {
+	if( !ms )
+		return;
+
+	if( ms->peakList ) {
+		llist_free( ms->peakList );
+		ms->peakList = NULL;
+	}
+	
+	if( ms->bitStream ) {
+		free( ms->bitStream );
+		ms->bitStream = NULL;
+	}
+
+	if( ms->charStream ) {
+		free( ms->charStream );
+		ms->charStream = NULL;
+	}
+}
+
 /* Misc User Functions */
 void ms_set_peakThreshold( msData *ms, int peakThreshold ) {
 	if( !ms )
@@ -87,27 +107,58 @@ const char *ms_get_charStream( msData *ms ) {
 
 /* Finding Peaks */
 int ms_range( int a, int b1, int b2 ) {
-	if( a > b1 && a < b2 )
-		return 1;
-	if( a > b2 && a < b1 )
+	if( ( a >= b1 && a <= b2 ) || ( a >= b2 && a <= b1 ) )
 		return 1;
 	return 0;
 }
 
+#define RANGE_OFFSET 2
 void ms_peaks_find( msData *ms ) {
 	int i;
+	short *pcmData, *pcmDataOffset;
 	
 	if( ms == NULL || ( ms->pcmData == NULL ) )
 		return;
 	
-	ms->peakList = llist_init();
+	if( ms->peakList == NULL )
+		ms->peakList = llist_init();
+	else
+		llist_reinit( ms->peakList );
 
-	for( i = 0; ( i + ms->peakOffset + 2 ) < ms->pcmDataLen; i++ ) {
-		if( abs( ms->pcmData[ i ] ) > ms->peakThreshold && ms_range( ms->pcmData[ i ], ms->pcmData[ ( i + ms->peakOffset ) - 2 ], ms->pcmData[ ( i + ms->peakOffset ) + 2 ] ) ) {
+	pcmData = ms->pcmData + RANGE_OFFSET;
+	pcmDataOffset = pcmData + ms->peakOffset;
+
+	for( i = ms->peakOffset + RANGE_OFFSET; i < ms->pcmDataLen; i++, pcmData++, pcmDataOffset++ ) {
+		if( abs( *pcmData ) > ms->peakThreshold &&
+			ms_range( *pcmData, *( pcmDataOffset - RANGE_OFFSET ), *( pcmDataOffset + RANGE_OFFSET ) ) ) {
+
 			llist_append( ms->peakList, i, ms->pcmData[ i ] );
 		}
 	}
 }
+
+void ms_peaks_find_walk( msData *ms ) {
+	int i;
+	short *pcmData;
+
+
+	if( ms == NULL || ( ms->pcmData == NULL ) )
+		return;
+		
+	if( ms->peakList == NULL )
+		ms->peakList = llist_init();
+	else
+		llist_reinit( ms->peakList );
+
+	for( i = 0, pcmData = ms->pcmData; i+1 < ms->pcmDataLen; i++, pcmData++ ) {
+		if( abs( *pcmData ) > ms->peakThreshold ) {
+			if( abs( pcmData[ 1 ] ) < abs( *pcmData ) ) {
+				llist_append( ms->peakList, i, *pcmData );
+			}
+		}
+	}
+}
+
 
 void ms_peaks_filter_group( msData *ms ) {
 	LList *trav;
@@ -192,12 +243,18 @@ void ms_decode_peaks( msData *ms ) {
 
 	if( !ms || ms->peakList == NULL || ms->peakList->len < 3 )
 		return;
+
+	if( ms->bitStream ) {
+		free( ms->bitStream );
+		ms->bitStream = NULL;
+	}
 	
 	lastPeakidx = ms->peakList->first->next->idx;
 	clock = ( ms->peakList->first->next->next->idx - lastPeakidx ) / 2;
 
 	len = 0;
 	lastBit = '\0';
+
 	for( trav = ms->peakList->first->next; trav != NULL && len < MAX_BITSTREAM_LEN; trav = trav->next ) {
 		curBit = _ms_closer( &clock, ( trav->idx - lastPeakidx ) );
 		if( curBit == '0' ) {
@@ -282,6 +339,11 @@ int ms_decode_bits( msData *ms ) {
                 charLen = IATA_CHAR_LEN;
 	}
 
+	if( ms->charStream ) {
+		free( ms->charStream );
+		ms->charStream = NULL;
+	}
+
 	validSwipe = 0;
 
 	bitStream = strchr( ms->bitStream, '1' );
@@ -358,5 +420,42 @@ char _ms_decode_bits_char( char *bitStream, char *LRC, ms_dataType type ) {
 		out = BAD_CHAR; // return the error char if the calculated parity bit doesn't match the recorded one
 	
 	return out;
+}
+
+
+void ms_save( msData *ms, const char *filenamebase ) {
+	LList *trav;
+	FILE *output;
+	char filename[256];
+	int fnlen;
+
+	if( ms == NULL )
+		return;
+
+	fnlen = strlen( filenamebase );
+	strncpy( filename, filenamebase, 256 );
+	
+	if( ms->peakList != NULL ) {
+		strncpy( filename + fnlen, ".peaks", 256 - fnlen );
+
+		output = fopen( filename, "w" );
+		if( output == NULL )
+			return;
+
+		for( trav = ms->peakList->first; trav != NULL; trav = trav->next ) {
+			fprintf( output, "%d %d\n", trav->idx, trav->amp );
+		}
+
+		fclose( output );
+	}
+
+	strncpy( filename + fnlen, ".pcm", 256 - fnlen );
+	output = fopen( filename, "w" );
+	if( output == NULL )
+		return;
+
+	fwrite( ms->pcmData, sizeof( short ), ms->pcmDataLen, output );
+	
+	fclose( output );
 }
 
