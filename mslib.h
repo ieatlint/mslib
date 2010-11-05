@@ -130,7 +130,7 @@ const char *ms_get_bitStream( msData *ms );
 const char *ms_get_charStream( msData *ms );
 
 /* Reverses a string in place */
-void strrev( char *str );
+void ms_strrev( char *str );
 
 
 

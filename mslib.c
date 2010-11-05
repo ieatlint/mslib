@@ -275,7 +275,7 @@ void ms_decode_peaks( msData *ms ) {
 }
 
 /* String Reverse Function */
-void strrev( char *str ) {
+void ms_strrev( char *str ) {
 	int f, l;
 	char tmp;
 
@@ -291,12 +291,12 @@ int ms_decode_typeDetect( msData *ms ) {
 	char *bitStream;
 	int loop = 2;
 
-	if( !ms || !ms->bitStream )
+	if( !ms || !ms->bitStream || strlen( ms->bitStream ) < 10 )
 		return 1;
 
 
 	do {
-		bitStream = strchr( ms->bitStream, '1' );
+		bitStream = strchr( ms->bitStream + 5, '1' );
 		if( bitStream == NULL )
 			break;
 	
@@ -308,7 +308,7 @@ int ms_decode_typeDetect( msData *ms ) {
 			return 0;
 		}
 
-		strrev( ms->bitStream );
+		ms_strrev( ms->bitStream );
 		loop--;
 	} while( loop );
 
