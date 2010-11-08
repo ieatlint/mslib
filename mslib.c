@@ -294,16 +294,15 @@ int ms_decode_typeDetect( msData *ms ) {
 	if( !ms || !ms->bitStream || strlen( ms->bitStream ) < 10 )
 		return 1;
 
-
 	do {
 		bitStream = strchr( ms->bitStream + 5, '1' );
 		if( bitStream == NULL )
 			break;
 	
-		if( !strncmp( bitStream, ABA_SS, ABA_CHAR_LEN ) ) {
+		if( !strncmp( bitStream, ABA_SS, ABA_CHAR_LEN ) && strncmp( bitStream, ABA_SS ABA_ES, ABA_CHAR_LEN * 2 ) ) {
 			ms->dataType = ABA;
 			return 0;
-		} else if( !strncmp( bitStream, IATA_SS, IATA_CHAR_LEN ) ) {
+		} else if( !strncmp( bitStream, IATA_SS, IATA_CHAR_LEN ) && strncmp( bitStream,IATA_SS IATA_ES, IATA_CHAR_LEN * 2 ) ) {
 			ms->dataType = IATA;
 			return 0;
 		}
@@ -311,7 +310,6 @@ int ms_decode_typeDetect( msData *ms ) {
 		ms_strrev( ms->bitStream );
 		loop--;
 	} while( loop );
-
 
 	ms->dataType = UNKNOWN;
 	return 1;
