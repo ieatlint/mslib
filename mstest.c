@@ -63,6 +63,7 @@ void audio_process( short *blocks, int len ) {
 }
 
 int main( int argc, char **argv ) {
+	short *data;
 	short *blocks;
 	int fd;
 	struct stat fdStat;
@@ -84,21 +85,23 @@ int main( int argc, char **argv ) {
 		return -1;
 	}
 
-	if( !strncmp( ( argv[1] + strlen( argv[1] - 4 ) ), ".wav", 4 ) ) {
-		// use a 44byte offset for .wav files to bypass header
-		offset = 44;
-	}
-	blocks = mmap( 0, fdStat.st_size, PROT_READ, MAP_SHARED, fd, offset );
+	data = mmap( 0, fdStat.st_size, PROT_READ, MAP_SHARED, fd, 0 );
 
-	if( blocks == MAP_FAILED ) {
+	if( data == MAP_FAILED ) {
 		close( fd );
 		perror( "Failed to map file" );
 		return -1;
 	}
 
-	audio_process( blocks, ( fdStat.st_size - offset ) / sizeof( short ) );
+	if( !strncmp( ( argv[1] + strlen( argv[1] - 4 ) ), ".wav", 4 ) ) {
+		// use a 44byte offset for .wav files to bypass header
+		offset = 44;
+	}
+	blocks = (short *)(data + offset);
 
-	if( munmap( blocks, fdStat.st_size ) == -1 ) {
+	audio_process( blocks + offset, ( fdStat.st_size - offset ) / sizeof( short ) );
+
+	if( munmap( data, fdStat.st_size ) == -1 ) {
 		perror( "Failed to unmap file" );
 	}
 	close( fd );
